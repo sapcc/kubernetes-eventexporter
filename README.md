@@ -1,6 +1,6 @@
 # Eventexporter
 
-[![Build Status](https://travis-ci.org/sapcc/kubernikus.svg?branch=master)](https://travis-ci.org/sapcc/kubernetes-eventexporter)
+[![Build Status](https://travis-ci.org/sapcc/kubernetes-eventexporter.svg?branch=master)](https://travis-ci.org/sapcc/kubernetes-eventexporter)
 [![Contributions](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://travis-ci.org/sapcc/kubernetes-eventexporter.svg?branch=master)
 [![License](https://img.shields.io/badge/license-Apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 

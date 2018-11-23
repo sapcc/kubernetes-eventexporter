@@ -27,6 +27,7 @@ container:
 
 push:
 	$(DOCKER) push $(REGISTRY)/$(TARGET):latest
+	$(DOCKER) push $(REGISTRY)/$(TARGET):$(VERSION)
 
 test:
 	$(DOCKER_BUILD) '$(TEST)'

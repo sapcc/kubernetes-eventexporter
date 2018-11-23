@@ -36,6 +36,7 @@ func LogEvent(event *v1.Event, config Config) []FilterMatch {
 			}
 
 			if err != nil {
+				ret = false
 				break
 			}
 		}
