@@ -8,49 +8,33 @@
 
 Eventexporter filters events in a Kubernetes cluster by a custom definition and exposes them in a configurable metric.
 
-Example:
+Configuration example:
 
-```
-    {
-      "metrics": [
-        {
-          "name": "metric_1",
-          "event_filters": [
-            {
-              "key": "InvolvedObject.Kind",
-              "expr": "Pod"
-            },
-            {
-              "key": "Message",
-              "expr": ".*Created container.*"
-            }
-          ],
-          "labels": [
-            {
-              "label": "Source.Host"
-            }
-          ]
-        },
-        {
-          "name": "metric_2",
-          "event_filters": [
-            {
-              "key": "Type",
-              "expr": "Warning"
-            },
-            {
-              "key": "Reason",
-              "expr": "PodOOMKilling"
-            }
-          ],
-          "labels": [
-            {
-              "label": "Source.Host"
-            }
-          ]
-        }
-      ]
-    }
+```yaml
+metrics:
+- name: metric_1
+  event_matcher:
+  - key: InvolvedObject.Kind
+    expr: Pod
+  - key: Message
+    expr: .*Created container.*
+  labels:
+    node: Source.Host
+- name: metric_2
+  event_matcher:
+  - key: Message
+    expr: .*Created container.*
+  labels:
+    node: Source.Host
+    type: Type
+- name: metric_3
+  event_matcher:
+  - key: Type
+    expr: Warning
+  - key: Reason
+    expr: PodOOMKilling
+  labels:
+    node: Source.Host
 ```
 
 See [yaml/eventexporter.yaml](yaml/eventexporter.yaml) for an actual configuration and deployment of eventexporter.

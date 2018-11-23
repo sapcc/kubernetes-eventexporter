@@ -12,7 +12,7 @@ import (
 
 type FilterMatch struct {
 	Name  string
-	Label []string
+	Label map[string]string
 }
 
 func LogEvent(event *v1.Event, config Config) []FilterMatch {
@@ -21,7 +21,7 @@ func LogEvent(event *v1.Event, config Config) []FilterMatch {
 	for _, metric := range config.Metrics {
 		ret := true
 
-		for _, filter := range metric.EventFilters {
+		for _, filter := range metric.EventMatcher {
 			value, err := GetValueFromStruct(event, filter.Key)
 
 			if filter.Expr != "" && err == nil {
@@ -42,19 +42,19 @@ func LogEvent(event *v1.Event, config Config) []FilterMatch {
 		}
 
 		if ret {
-			var s []string
+			var l = make(map[string]string)
 
-			for _, label := range metric.Labels {
-				value, err := GetValueFromStruct(event, label.Label)
+			for labelKey, labelSpec := range metric.Labels {
+				value, err := GetValueFromStruct(event, labelSpec)
 
 				if err != nil {
 					break
 				}
 
-				s = append(s, value)
+				l[labelKey] = value
 			}
 
-			matches = append(matches, FilterMatch{Name: metric.Name, Label: s})
+			matches = append(matches, FilterMatch{Name: metric.Name, Label: l})
 		}
 	}
 

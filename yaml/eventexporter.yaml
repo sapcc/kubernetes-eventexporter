@@ -28,61 +28,31 @@ subjects:
 ---
 apiVersion: v1
 data:
-  config.json: |- 
-    {
-      "metrics": [
-        {
-          "name": "metric_1",
-          "event_filters": [
-            {
-              "key": "InvolvedObject.Kind",
-              "expr": "Pod"
-            },
-            {
-              "key": "Message",
-              "expr": ".*Created container.*"
-            }
-          ],
-          "labels": [
-            {
-              "label": "Source.Host"
-            }
-          ]
-        },
-        {
-          "name": "metric_2",
-          "event_filters": [
-            {
-              "key": "Message",
-              "expr": ".*Created container.*"
-            }
-          ],
-          "labels": [
-            {
-              "label": "Source.Host"
-            }
-          ]
-        },
-        {
-          "name": "metric_3",
-          "event_filters": [
-            {
-              "key": "Type",
-              "expr": "Warning"
-            },
-            {
-              "key": "Reason",
-              "expr": "PodOOMKilling"
-            }
-          ],
-          "labels": [
-            {
-              "label": "Source.Host"
-            }
-          ]
-        }
-      ]
-    }
+  config.yaml: |-
+    metrics:
+    - name: metric_1
+      event_matcher:
+      - key: InvolvedObject.Kind
+        expr: Pod
+      - key: Message
+        expr: .*Created container.*
+      labels:
+        node: Source.Host
+    - name: metric_2
+      event_matcher:
+      - key: Message
+        expr: .*Created container.*
+      labels:
+        node: Source.Host
+        type: Type
+    - name: metric_3
+      event_matcher:
+      - key: Type
+        expr: Warning
+      - key: Reason
+        expr: PodOOMKilling
+      labels:
+        node: Source.Host
 kind: ConfigMap
 metadata:
   name: eventexporter
@@ -109,14 +79,14 @@ spec:
         prometheus.io/port: "9102"
     spec:
       containers:
-        - name: kube-eventexporter
-          image: sapcc/kubernetes-eventexporter:latest
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: config-volume
-            mountPath: /etc/eventexporter
+      - name: kube-eventexporter
+        image: sapcc/kubernetes-eventexporter:latest
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/eventexporter
       serviceAccount: eventexporter
       volumes:
-        - name: config-volume
-          configMap:
-            name: eventexporter
+      - name: config-volume
+        configMap:
+          name: eventexporter

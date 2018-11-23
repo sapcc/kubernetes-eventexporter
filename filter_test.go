@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	yaml "gopkg.in/yaml.v2"
 	"k8s.io/api/core/v1"
 )
 
@@ -12,9 +13,9 @@ func TestLogEventMatch(t *testing.T) {
 	var config Config
 	var event *v1.Event
 
-	configJSON, eventJSON := getTestData()
+	configYAML, eventJSON := getTestData()
 
-	err := json.Unmarshal([]byte(configJSON), &config)
+	err := yaml.Unmarshal([]byte(configYAML), &config)
 	require.NoError(t, err, "There should be no error while unmarshaling config")
 
 	err = json.Unmarshal([]byte(eventJSON), &event)
@@ -22,19 +23,20 @@ func TestLogEventMatch(t *testing.T) {
 
 	matches := LogEvent(event, config)
 
-	require.Equal(t, "metric_1", matches[0].Name)
-	require.Equal(t, []string{"Testnode"}, matches[0].Label)
-	require.Equal(t, "metric_2", matches[1].Name)
-	require.Equal(t, []string{"Normal"}, matches[1].Label)
 	require.Equal(t, 2, len(matches), "There should be exactly two metrics returned")
+	require.Equal(t, "metric_1", matches[0].Name)
+	require.Equal(t, "Testnode", matches[0].Label["node"])
+	require.Equal(t, "Normal", matches[0].Label["type"])
+	require.Equal(t, "metric_2", matches[1].Name)
+	require.Equal(t, "Normal", matches[1].Label["type"])
 }
 
 func TestLogEventEmptyConfig(t *testing.T) {
 	var config Config
 
-	configJSON, _ := getTestData()
+	configYAML, _ := getTestData()
 
-	err := json.Unmarshal([]byte(configJSON), &config)
+	err := yaml.Unmarshal([]byte(configYAML), &config)
 	require.NoError(t, err, "There should be no error while unmarshaling config")
 
 	matches := LogEvent(&v1.Event{}, Config{})
@@ -56,42 +58,22 @@ func TestLogEventEmptyEvent(t *testing.T) {
 }
 
 func getTestData() (string, string) {
-	config := `{
-		"metrics": [
-		  {
-			"name": "metric_1",
-			"event_filters": [
-			  {
-				"key": "InvolvedObject.Kind",
-				"expr": "Pod"
-			  },
-			  {
-				"key": "Message",
-				"expr": ".*Created container.*"
-			  }
-			],
-			"labels": [
-			  {
-				"label": "Source.Host"
-			  }
-			]
-		  },
-		  {
-			"name": "metric_2",
-			"event_filters": [
-			  {
-				"key": "Source.Host",
-				"expr": "Testnode"
-			  }
-			],
-			"labels": [
-			  {
-				"label": "Reason"
-			  }
-			]
-		  }
-		]
-	  }`
+	config := `metrics:
+- name: metric_1
+  event_matcher:
+  - key: InvolvedObject.Kind
+    expr: Pod
+  - key: Message
+    expr: .*Created container.*
+  labels:
+    node: Source.Host
+    type: Type
+- name: metric_2
+  event_matcher:
+  - key: Message
+    expr: .*Created container.*
+  labels:
+    type: Type`
 
 	event := `{
 		"Message": "Created container",
@@ -101,7 +83,7 @@ func getTestData() (string, string) {
 		"Source": {
 			"Host": "Testnode"	
 		},
-		"Reason": "Normal"
+		"Type": "Normal"
 	}`
 
 	return config, event

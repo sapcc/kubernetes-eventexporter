@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	yaml "gopkg.in/yaml.v2"
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -23,13 +23,11 @@ import (
 type Config struct {
 	Metrics []struct {
 		Name         string `yaml:"name"`
-		EventFilters []struct {
+		EventMatcher []struct {
 			Key  string `yaml:"key"`
 			Expr string `yaml:"expr"`
-		} `yaml:"event_filter"`
-		Labels []struct {
-			Label string `yaml:"label"`
-		} `yaml:"labels"`
+		} `yaml:"event_matcher"`
+		Labels map[string]string `yaml:"labels"`
 	} `yaml:"metrics"`
 }
 
@@ -41,7 +39,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&configFile, "config", "/etc/eventexporter/config.json", "config file for the event exporter")
+	flag.StringVar(&configFile, "config", "/etc/eventexporter/config.yaml", "config file for the event exporter")
 	flag.StringVar(&metricsAddr, "listen-address", ":9102", "The address to listen on for HTTP requests.")
 	flag.StringVar(&kubeconfigFile, "kubeconfig", "", "Use explicit kubeconfig file")
 	flag.StringVar(&kubeContext, "context", "", "Use context")
@@ -66,16 +64,20 @@ func sigHandler() <-chan struct{} {
 }
 
 func loadConfig() (Config, error) {
-	jsonFile, err := os.Open(configFile)
+	yamlFile, err := os.Open(configFile)
 	if err != nil {
 		return Config{}, err
 	}
-	defer jsonFile.Close()
+	defer yamlFile.Close()
 
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := ioutil.ReadAll(yamlFile)
 
 	var config Config
-	json.Unmarshal([]byte(byteValue), &config)
+	err = yaml.Unmarshal([]byte(byteValue), &config)
+
+	if err != nil {
+		glog.Fatalf("Could not unmarshal config: %v", err)
+	}
 
 	return config, nil
 }
