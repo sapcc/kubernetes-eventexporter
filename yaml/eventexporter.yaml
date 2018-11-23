@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eventexporter 
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: eventexporter 
+rules:
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: eventexporter 
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eventexporter
+subjects:
+- kind: ServiceAccount
+  name: eventexporter
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  config.json: |- 
+    {
+      "metrics": [
+        {
+          "name": "metric_1",
+          "event_filters": [
+            {
+              "key": "InvolvedObject.Kind",
+              "expr": "Pod"
+            },
+            {
+              "key": "Message",
+              "expr": ".*Created container.*"
+            }
+          ],
+          "labels": [
+            {
+              "label": "Source.Host"
+            }
+          ]
+        },
+        {
+          "name": "metric_2",
+          "event_filters": [
+            {
+              "key": "Message",
+              "expr": ".*Created container.*"
+            }
+          ],
+          "labels": [
+            {
+              "label": "Source.Host"
+            }
+          ]
+        },
+        {
+          "name": "metric_3",
+          "event_filters": [
+            {
+              "key": "Type",
+              "expr": "Warning"
+            },
+            {
+              "key": "Reason",
+              "expr": "PodOOMKilling"
+            }
+          ],
+          "labels": [
+            {
+              "label": "Source.Host"
+            }
+          ]
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  name: eventexporter
+  namespace: kube-system
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: eventexporter
+  namespace: kube-system
+  labels:
+    app: eventexporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eventexporter
+  template:
+    metadata:
+      labels:
+        app: eventexporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9102"
+    spec:
+      containers:
+        - name: kube-eventexporter
+          image: sapcc/kubernetes-eventexporter:latest
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/eventexporter
+      serviceAccount: eventexporter
+      volumes:
+        - name: config-volume
+          configMap:
+            name: eventexporter
