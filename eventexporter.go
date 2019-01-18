@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,6 +17,7 @@ import (
 
 var (
 	kubernetesEventCounterVec map[string]*prometheus.CounterVec
+	discardDuration           time.Duration
 )
 
 type EventRouter struct {
@@ -55,6 +57,13 @@ func NewEventRouter(kubeClient kubernetes.Interface, eventsInformer coreinformer
 	er.eLister = eventsInformer.Lister()
 	er.eListerSynched = eventsInformer.Informer().HasSynced
 
+	var err error
+	discardDuration, err = time.ParseDuration(discardTime)
+	if err != nil {
+		glog.Error("Cant't parse discard time, defaulting to 60s")
+		discardDuration, _ = time.ParseDuration("60s")
+	}
+
 	return er
 }
 
@@ -73,7 +82,13 @@ func (er *EventRouter) Run(stopCh <-chan struct{}) {
 
 func (er *EventRouter) addEvent(obj interface{}) {
 	e := obj.(*v1.Event)
-	filterMatches := LogEvent(e, er.Config)
+
+	if discardEvent(e) {
+		glog.V(5).Infof("Discarding event: %v", e)
+		return
+	}
+
+	filterMatches := LogEvent(e, er)
 	if filterMatches != nil {
 		for _, filterMatch := range filterMatches {
 			prometheusEvent(e, filterMatch.Name, filterMatch.Label)
@@ -83,7 +98,13 @@ func (er *EventRouter) addEvent(obj interface{}) {
 
 func (er *EventRouter) updateEvent(objOld interface{}, objNew interface{}) {
 	eNew := objNew.(*v1.Event)
-	filterMatches := LogEvent(eNew, er.Config)
+
+	if discardEvent(eNew) {
+		glog.V(5).Infof("Discarding event: %v", eNew)
+		return
+	}
+
+	filterMatches := LogEvent(eNew, er)
 	if filterMatches != nil {
 		for _, filterMatch := range filterMatches {
 			prometheusEvent(eNew, filterMatch.Name, filterMatch.Label)
@@ -109,4 +130,12 @@ func prometheusEvent(event *v1.Event, filter string, labels map[string]string) {
 func (er *EventRouter) deleteEvent(obj interface{}) {
 	e := obj.(*v1.Event)
 	glog.V(5).Infof("Event Deleted from the system:\n%v", e)
+}
+
+func discardEvent(e *v1.Event) bool {
+	if discardDuration.Seconds() != 0 && time.Now().Unix()-e.LastTimestamp.Unix() > int64(discardDuration.Seconds()) {
+		return true
+	}
+
+	return false
 }

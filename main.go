@@ -36,10 +36,12 @@ var (
 	metricsAddr    string
 	kubeconfigFile string
 	kubeContext    string
+	discardTime    string
 )
 
 func init() {
 	flag.StringVar(&configFile, "config", "/etc/eventexporter/config.yaml", "config file for the event exporter")
+	flag.StringVar(&discardTime, "discard", "60s", "Discard events duration, 0 to disable")
 	flag.StringVar(&metricsAddr, "listen-address", ":9102", "The address to listen on for HTTP requests.")
 	flag.StringVar(&kubeconfigFile, "kubeconfig", "", "Use explicit kubeconfig file")
 	flag.StringVar(&kubeContext, "context", "", "Use context")
