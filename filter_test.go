@@ -21,7 +21,7 @@ func TestLogEventMatch(t *testing.T) {
 	err = json.Unmarshal([]byte(eventJSON), &event)
 	require.NoError(t, err, "There should be no error while unmarshaling event")
 
-	matches := LogEvent(event, config)
+	matches := LogEvent(event, &EventRouter{Config: config})
 
 	require.Equal(t, 2, len(matches), "There should be exactly two metrics returned")
 	require.Equal(t, "metric_1", matches[0].Name)
@@ -39,7 +39,7 @@ func TestLogEventEmptyConfig(t *testing.T) {
 	err := yaml.Unmarshal([]byte(configYAML), &config)
 	require.NoError(t, err, "There should be no error while unmarshaling config")
 
-	matches := LogEvent(&v1.Event{}, Config{})
+	matches := LogEvent(&v1.Event{}, &EventRouter{})
 
 	require.Equal(t, 0, len(matches), "There should be no metrics returned")
 }
@@ -52,7 +52,7 @@ func TestLogEventEmptyEvent(t *testing.T) {
 	err := json.Unmarshal([]byte(eventJSON), &event)
 	require.NoError(t, err, "There should be no error while unmarshaling event")
 
-	matches := LogEvent(event, Config{})
+	matches := LogEvent(event, &EventRouter{})
 
 	require.Equal(t, 0, len(matches), "There should be no metrics returned")
 }
