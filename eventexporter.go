@@ -17,7 +17,6 @@ import (
 
 var (
 	kubernetesEventCounterVec map[string]*prometheus.CounterVec
-	discardDuration           time.Duration
 )
 
 type EventRouter struct {
@@ -56,13 +55,6 @@ func NewEventRouter(kubeClient kubernetes.Interface, eventsInformer coreinformer
 	})
 	er.eLister = eventsInformer.Lister()
 	er.eListerSynched = eventsInformer.Informer().HasSynced
-
-	var err error
-	discardDuration, err = time.ParseDuration(discardTime)
-	if err != nil {
-		glog.Error("Cant't parse discard time, defaulting to 60s")
-		discardDuration, _ = time.ParseDuration("60s")
-	}
 
 	return er
 }
@@ -133,9 +125,5 @@ func (er *EventRouter) deleteEvent(obj interface{}) {
 }
 
 func discardEvent(e *v1.Event) bool {
-	if discardDuration.Seconds() != 0 && time.Now().Unix()-e.LastTimestamp.Unix() > int64(discardDuration.Seconds()) {
-		return true
-	}
-
-	return false
+	return time.Since(e.LastTimestamp.Time) > discardInterval
 }

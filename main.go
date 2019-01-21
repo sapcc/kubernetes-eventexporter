@@ -32,16 +32,16 @@ type Config struct {
 }
 
 var (
-	configFile     string
-	metricsAddr    string
-	kubeconfigFile string
-	kubeContext    string
-	discardTime    string
+	configFile      string
+	metricsAddr     string
+	kubeconfigFile  string
+	kubeContext     string
+	discardInterval time.Duration
 )
 
 func init() {
 	flag.StringVar(&configFile, "config", "/etc/eventexporter/config.yaml", "config file for the event exporter")
-	flag.StringVar(&discardTime, "discard", "60s", "Discard events duration, 0 to disable")
+	flag.DurationVar(&discardInterval, "discard", 60*time.Second, "Discard events older then specified Interaval. Set to 0 to disable")
 	flag.StringVar(&metricsAddr, "listen-address", ":9102", "The address to listen on for HTTP requests.")
 	flag.StringVar(&kubeconfigFile, "kubeconfig", "", "Use explicit kubeconfig file")
 	flag.StringVar(&kubeContext, "context", "", "Use context")
