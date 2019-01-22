@@ -27,10 +27,8 @@ var (
     type: Type
 `)
 	testEvent = v1.Event{
-		Message: "Created container",
-		InvolvedObject: v1.ObjectReference{
-			Kind: "Pod",
-		},
+		Message:        "Created container",
+		InvolvedObject: v1.ObjectReference{Kind: "Pod"},
 		Source: v1.EventSource{
 			Host: "Testnode",
 		},
@@ -44,7 +42,7 @@ func TestLogEventMatch(t *testing.T) {
 
 	matches := LogEvent(&testEvent, &EventRouter{Config: config})
 
-	require.Equal(t, matches, []FilterMatch{
+	require.Equal(t, []FilterMatch{
 		FilterMatch{
 			Name:   "metric_1",
 			Labels: map[string]string{"node": testEvent.Source.Host, "type": testEvent.Type},
@@ -53,7 +51,7 @@ func TestLogEventMatch(t *testing.T) {
 			Name:   "metric_2",
 			Labels: map[string]string{"type": testEvent.Type},
 		},
-	})
+	}, matches)
 }
 
 func TestNoMatch(t *testing.T) {
@@ -71,6 +69,40 @@ func TestNoMatch(t *testing.T) {
 	matches := LogEvent(&testEvent, &EventRouter{Config: config})
 
 	require.Empty(t, matches)
+}
+
+func TestSkipMetricsWithMissingLabels(t *testing.T) {
+	testConfig := []byte(`metrics:
+- name: metric_1
+  event_matcher:
+  - key: Message
+    expr: Label missing
+  labels:
+    missing: Nase
+    type: Type
+- name: metric_2
+  event_matcher:
+  - key: Message
+    expr: Label missing
+  labels:
+    type: Type
+`)
+	testEvent = v1.Event{
+		Message: "Label missing",
+		Type:    "Normal",
+	}
+	config, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.NoError(t, err, "There should be no error while unmarshaling config")
+
+	matches := LogEvent(&testEvent, &EventRouter{Config: config})
+
+	require.Equal(t, []FilterMatch{
+		FilterMatch{
+			Name:   "metric_2",
+			Labels: map[string]string{"type": testEvent.Type},
+		},
+	}, matches)
+
 }
 
 func TestLogEventEmptyConfig(t *testing.T) {

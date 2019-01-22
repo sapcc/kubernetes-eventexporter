@@ -66,9 +66,8 @@ OUTER:
 			}
 
 			if err != nil {
-				glog.Errorf("Could not get metric label: %v", err)
-				//TODO: Shouldn't this be a continue?
-				break
+				glog.Errorf("Could not get label '%s' for metric '%s': %v", labelKey, metric.Name, err)
+				continue OUTER
 			}
 
 			l[labelKey] = value
