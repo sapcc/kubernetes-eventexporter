@@ -7,7 +7,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -23,10 +23,10 @@ type EventRouter struct {
 	kubeClient     kubernetes.Interface
 	eLister        corelisters.EventLister
 	eListerSynched cache.InformerSynced
-	Config         Config
+	Config         *Config
 }
 
-func NewEventRouter(kubeClient kubernetes.Interface, eventsInformer coreinformers.EventInformer, config Config) *EventRouter {
+func NewEventRouter(kubeClient kubernetes.Interface, eventsInformer coreinformers.EventInformer, config *Config) *EventRouter {
 	kubernetesEventCounterVec = make(map[string]*prometheus.CounterVec)
 
 	for _, metric := range config.Metrics {
@@ -83,7 +83,7 @@ func (er *EventRouter) addEvent(obj interface{}) {
 	filterMatches := LogEvent(e, er)
 	if filterMatches != nil {
 		for _, filterMatch := range filterMatches {
-			prometheusEvent(e, filterMatch.Name, filterMatch.Label)
+			prometheusEvent(e, filterMatch.Name, filterMatch.Labels)
 		}
 	}
 }
@@ -99,7 +99,7 @@ func (er *EventRouter) updateEvent(objOld interface{}, objNew interface{}) {
 	filterMatches := LogEvent(eNew, er)
 	if filterMatches != nil {
 		for _, filterMatch := range filterMatches {
-			prometheusEvent(eNew, filterMatch.Name, filterMatch.Label)
+			prometheusEvent(eNew, filterMatch.Name, filterMatch.Labels)
 		}
 	}
 }

@@ -1,64 +1,15 @@
 package main
 
 import (
-	"encoding/json"
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	yaml "gopkg.in/yaml.v2"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
-func TestLogEventMatch(t *testing.T) {
-	var config Config
-	var event *v1.Event
-
-	configYAML, eventJSON := getTestData()
-
-	err := yaml.Unmarshal([]byte(configYAML), &config)
-	require.NoError(t, err, "There should be no error while unmarshaling config")
-
-	err = json.Unmarshal([]byte(eventJSON), &event)
-	require.NoError(t, err, "There should be no error while unmarshaling event")
-
-	matches := LogEvent(event, &EventRouter{Config: config})
-
-	require.Equal(t, 2, len(matches), "There should be exactly two metrics returned")
-	require.Equal(t, "metric_1", matches[0].Name)
-	require.Equal(t, "Testnode", matches[0].Label["node"])
-	require.Equal(t, "Normal", matches[0].Label["type"])
-	require.Equal(t, "metric_2", matches[1].Name)
-	require.Equal(t, "Normal", matches[1].Label["type"])
-}
-
-func TestLogEventEmptyConfig(t *testing.T) {
-	var config Config
-
-	configYAML, _ := getTestData()
-
-	err := yaml.Unmarshal([]byte(configYAML), &config)
-	require.NoError(t, err, "There should be no error while unmarshaling config")
-
-	matches := LogEvent(&v1.Event{}, &EventRouter{})
-
-	require.Equal(t, 0, len(matches), "There should be no metrics returned")
-}
-
-func TestLogEventEmptyEvent(t *testing.T) {
-	var event *v1.Event
-
-	_, eventJSON := getTestData()
-
-	err := json.Unmarshal([]byte(eventJSON), &event)
-	require.NoError(t, err, "There should be no error while unmarshaling event")
-
-	matches := LogEvent(event, &EventRouter{})
-
-	require.Equal(t, 0, len(matches), "There should be no metrics returned")
-}
-
-func getTestData() (string, string) {
-	config := `metrics:
+var (
+	testConfig = []byte(`metrics:
 - name: metric_1
   event_matcher:
   - key: InvolvedObject.Kind
@@ -73,18 +24,96 @@ func getTestData() (string, string) {
   - key: Message
     expr: .*Created container.*
   labels:
-    type: Type`
-
-	event := `{
-		"Message": "Created container",
-		"InvolvedObject": {
-			"Kind": "Pod"
+    type: Type
+`)
+	testEvent = v1.Event{
+		Message:        "Created container",
+		InvolvedObject: v1.ObjectReference{Kind: "Pod"},
+		Source: v1.EventSource{
+			Host: "Testnode",
 		},
-		"Source": {
-			"Host": "Testnode"	
-		},
-		"Type": "Normal"
-	}`
+		Type: "Normal",
+	}
+)
 
-	return config, event
+func TestLogEventMatch(t *testing.T) {
+	config, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.NoError(t, err, "There should be no error while unmarshaling config")
+
+	matches := LogEvent(&testEvent, &EventRouter{Config: config})
+
+	require.Equal(t, []FilterMatch{
+		FilterMatch{
+			Name:   "metric_1",
+			Labels: map[string]string{"node": testEvent.Source.Host, "type": testEvent.Type},
+		},
+		FilterMatch{
+			Name:   "metric_2",
+			Labels: map[string]string{"type": testEvent.Type},
+		},
+	}, matches)
+}
+
+func TestNoMatch(t *testing.T) {
+	config, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.NoError(t, err, "There should be no error while unmarshaling config")
+
+	testEvent = v1.Event{
+		Message: "Other message",
+		Source: v1.EventSource{
+			Host: "Testnode",
+		},
+		Type: "Normal",
+	}
+
+	matches := LogEvent(&testEvent, &EventRouter{Config: config})
+
+	require.Empty(t, matches)
+}
+
+func TestSkipMetricsWithMissingLabels(t *testing.T) {
+	testConfig := []byte(`metrics:
+- name: metric_1
+  event_matcher:
+  - key: Message
+    expr: Label missing
+  labels:
+    missing: Nase
+    type: Type
+- name: metric_2
+  event_matcher:
+  - key: Message
+    expr: Label missing
+  labels:
+    type: Type
+`)
+	testEvent = v1.Event{
+		Message: "Label missing",
+		Type:    "Normal",
+	}
+	config, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.NoError(t, err, "There should be no error while unmarshaling config")
+
+	matches := LogEvent(&testEvent, &EventRouter{Config: config})
+
+	require.Equal(t, []FilterMatch{
+		FilterMatch{
+			Name:   "metric_2",
+			Labels: map[string]string{"type": testEvent.Type},
+		},
+	}, matches)
+
+}
+
+func TestLogEventEmptyConfig(t *testing.T) {
+	matches := LogEvent(&v1.Event{}, &EventRouter{})
+
+	require.Equal(t, 0, len(matches), "There should be no metrics returned")
+}
+
+func TestLogEventEmptyEvent(t *testing.T) {
+
+	matches := LogEvent(&testEvent, &EventRouter{})
+
+	require.Equal(t, 0, len(matches), "There should be no metrics returned")
 }
