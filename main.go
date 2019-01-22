@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,24 +11,12 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	yaml "gopkg.in/yaml.v2"
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
-
-type Config struct {
-	Metrics []struct {
-		Name         string `yaml:"name"`
-		EventMatcher []struct {
-			Key  string `yaml:"key"`
-			Expr string `yaml:"expr"`
-		} `yaml:"event_matcher"`
-		Labels map[string]string `yaml:"labels"`
-	} `yaml:"metrics"`
-}
 
 var (
 	configFile      string
@@ -53,11 +40,7 @@ func sigHandler() <-chan struct{} {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c,
 			syscall.SIGINT,  // Ctrl+C
-			syscall.SIGTERM, // Termination Request
-			syscall.SIGSEGV, // FullDerp
-			syscall.SIGABRT, // Abnormal termination
-			syscall.SIGILL,  // illegal instruction
-			syscall.SIGFPE)  // floating point - this is why we can't have nice things
+			syscall.SIGTERM) // Termination Request
 		sig := <-c
 		glog.Warningf("Signal (%v) Detected, Shutting Down", sig)
 		close(stop)
@@ -65,32 +48,17 @@ func sigHandler() <-chan struct{} {
 	return stop
 }
 
-func loadConfig() (Config, error) {
-	yamlFile, err := os.Open(configFile)
-	if err != nil {
-		return Config{}, err
-	}
-	defer yamlFile.Close()
-
-	byteValue, _ := ioutil.ReadAll(yamlFile)
-
-	var config Config
-	err = yaml.Unmarshal([]byte(byteValue), &config)
-
-	if err != nil {
-		glog.Fatalf("Could not unmarshal config: %v", err)
-	}
-
-	return config, nil
-}
-
 func main() {
 	var wg sync.WaitGroup
 
 	flag.Parse()
 
-	config, err := loadConfig()
-
+	yamlFile, err := os.Open(configFile)
+	if err != nil {
+		glog.Fatalf("Failed to open file %s: %v", configFile, err)
+	}
+	config, err := NewConfig(yamlFile)
+	yamlFile.Close()
 	if err != nil {
 		glog.Fatal("Could not load config file", err)
 	}

@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	structs_util "github.com/fatih/structs"
 	"github.com/golang/glog"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,69 +19,62 @@ var (
 )
 
 type FilterMatch struct {
-	Name  string
-	Label map[string]string
+	Name   string
+	Labels map[string]string
 }
 
 func LogEvent(event *v1.Event, er *EventRouter) []FilterMatch {
 	var matches []FilterMatch
 	eventRouter = er
+	if er.Config == nil {
+		return matches
+	}
 
+OUTER:
 	for _, metric := range er.Config.Metrics {
-		ret := true
 
 		for _, filter := range metric.EventMatcher {
 			value, err := GetValueFromStruct(event, filter.Key)
+			if err != nil {
+				glog.Errorf("Could not get value for key %s: %v", filter.Key, err)
+				continue OUTER
+			}
 
 			if filter.Expr != "" && err == nil {
-				match, _ := regexp.MatchString(
-					filter.Expr,
-					value,
-				)
-
+				match := filter.regex.MatchString(value)
 				glog.V(5).Infof("Expression: %s Value: %s Match: %v\n", filter.Expr, value, match)
-
-				ret = ret && match
-
-				if !ret {
-					break
+				if !match {
+					continue OUTER
 				}
+			}
+		}
+
+		var l = make(map[string]string)
+
+		for labelKey, labelSpec := range metric.Labels {
+			value := ""
+			var err error
+			var pod *v1.Pod
+
+			if strings.HasPrefix(labelSpec, PodVirtualTypePrefix) && event.InvolvedObject.Kind == "Pod" {
+				pod, err = getPodObjectForEvent(event)
+				if err == nil {
+					value, err = GetValueFromStruct(pod, strings.Replace(labelSpec, PodVirtualTypePrefix, "", 1))
+				}
+			} else {
+				value, err = GetValueFromStruct(event, labelSpec)
 			}
 
 			if err != nil {
-				glog.Errorf("Could not get filtered value: %v", err)
-				ret = false
+				glog.Errorf("Could not get metric label: %v", err)
+				//TODO: Shouldn't this be a continue?
 				break
 			}
+
+			l[labelKey] = value
 		}
 
-		if ret {
-			var l = make(map[string]string)
-
-			for labelKey, labelSpec := range metric.Labels {
-				value := ""
-				var err error
-				var pod *v1.Pod
-
-				if strings.HasPrefix(labelSpec, PodVirtualTypePrefix) && event.InvolvedObject.Kind == "Pod" {
-					pod, err = getPodObjectForEvent(event)
-					if err == nil {
-						value, err = GetValueFromStruct(pod, strings.Replace(labelSpec, PodVirtualTypePrefix, "", 1))
-					}
-				} else {
-					value, err = GetValueFromStruct(event, labelSpec)
-				}
-
-				if err != nil {
-					glog.Errorf("Could not get metric label: %v", err)
-					break
-				}
-
-				l[labelKey] = value
-			}
-
-			matches = append(matches, FilterMatch{Name: metric.Name, Label: l})
-		}
+		matches = append(matches, FilterMatch{Name: metric.Name, Labels: l})
 	}
 
 	return matches
