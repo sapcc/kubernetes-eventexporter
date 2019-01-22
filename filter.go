@@ -33,6 +33,8 @@ func LogEvent(event *v1.Event, er *EventRouter) []FilterMatch {
 OUTER:
 	for _, metric := range er.Config.Metrics {
 
+		matchResults := make(map[string][]string, len(metric.EventMatcher))
+
 		for _, filter := range metric.EventMatcher {
 			value, err := GetValueFromStruct(event, filter.Key)
 			if err != nil {
@@ -41,9 +43,9 @@ OUTER:
 			}
 
 			if filter.Expr != "" && err == nil {
-				match := filter.regex.MatchString(value)
-				glog.V(5).Infof("Expression: %s Value: %s Match: %v\n", filter.Expr, value, match)
-				if !match {
+				matchResults[filter.Key] = metric.regexMap[filter.Key].FindStringSubmatch(value)
+				glog.V(5).Infof("Expression: %s Value: %s Match: %v\n", filter.Expr, value, matchResults[filter.Key] != nil)
+				if matchResults[filter.Key] == nil {
 					continue OUTER
 				}
 			}
@@ -51,26 +53,14 @@ OUTER:
 
 		var l = make(map[string]string)
 
-		for labelKey, labelSpec := range metric.Labels {
-			value := ""
-			var err error
-			var pod *v1.Pod
-
-			if strings.HasPrefix(labelSpec, PodVirtualTypePrefix) && event.InvolvedObject.Kind == "Pod" {
-				pod, err = getPodObjectForEvent(event)
-				if err == nil {
-					value, err = GetValueFromStruct(pod, strings.Replace(labelSpec, PodVirtualTypePrefix, "", 1))
-				}
-			} else {
-				value, err = GetValueFromStruct(event, labelSpec)
-			}
-
+		for labelKey, _ := range metric.Labels {
+			labelValue, err := metric.labelLookupMap[labelKey](event, matchResults)
 			if err != nil {
 				glog.Errorf("Could not get label '%s' for metric '%s': %v", labelKey, metric.Name, err)
 				continue OUTER
 			}
 
-			l[labelKey] = value
+			l[labelKey] = labelValue
 		}
 
 		matches = append(matches, FilterMatch{Name: metric.Name, Labels: l})

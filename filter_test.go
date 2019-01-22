@@ -105,6 +105,61 @@ func TestSkipMetricsWithMissingLabels(t *testing.T) {
 
 }
 
+func TestLabelSubmatch(t *testing.T) {
+	testConfig := []byte(`metrics:
+- name: submatch
+  event_matcher:
+  - key: Message
+    expr: Volume (.*) mount failed for Instance (.*)
+  - key: Type
+  expr: Normal
+  labels:
+    volume: Message[1]
+    instance: Message[2]
+`)
+	testEvent = v1.Event{
+		Message: "Volume vol-1234 mount failed for Instance instance-789",
+		Type:    "Normal",
+	}
+	config, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.NoError(t, err, "There should be no error while unmarshaling config")
+
+	matches := LogEvent(&testEvent, &EventRouter{Config: config})
+
+	require.Equal(t, []FilterMatch{
+		FilterMatch{
+			Name:   "submatch",
+			Labels: map[string]string{"volume": "vol-1234", "instance": "instance-789"},
+		},
+	}, matches)
+
+}
+
+func TestConfigErrorSubmatchWithoutMatcher(t *testing.T) {
+	testConfig := []byte(`metrics:
+- name: submatch
+  event_matcher:
+  - key: Type
+  expr: Normal
+  labels:
+    volume: Message[1]
+`)
+	_, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.EqualError(t, err, "Configuration for metric 'submatch' invalid: Can't use a submatch for key 'Message' without a match expression")
+}
+func TestConfigErrorSubmatchGroupMissing(t *testing.T) {
+	testConfig := []byte(`metrics:
+- name: submatch
+  event_matcher:
+  - key: Message
+    expr: Normal
+  labels:
+    volume: Message[1]
+`)
+	_, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.EqualError(t, err, "Configuration for metric 'submatch' invalid: Match expression for key 'Message' does not contain 1 subexpressions")
+}
+
 func TestLogEventEmptyConfig(t *testing.T) {
 	matches := LogEvent(&v1.Event{}, &EventRouter{})
 
