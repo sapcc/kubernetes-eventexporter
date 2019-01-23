@@ -12,6 +12,9 @@ rules:
 - apiGroups: [""]
   resources: ["events"]
   verbs: ["get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -40,19 +43,31 @@ data:
         node: Source.Host
     - name: metric_2
       event_matcher:
-      - key: Message
-        expr: .*Created container.*
-      labels:
-        node: Source.Host
-        type: Type
-    - name: metric_3
-      event_matcher:
       - key: Type
         expr: Warning
       - key: Reason
         expr: PodOOMKilling
       labels:
         node: Source.Host
+    - name: virtuell_object
+      event_matcher:
+      - key: InvolvedObject.Kind
+        expr: Pod
+      - key: Reason
+        expr: FailedAttachVolume
+      - key: Source.Component
+        expr: attachdetach.*
+      labels:
+        node: Object.Spec.NodeName
+    - name: submatch
+      event_matcher:
+      - key: Message
+        expr: Volume (.*) mount failed for Instance (.*)
+      - key: Type
+        expr: Normal
+      labels:
+        volume: Message[1]
+        instance: Message[2]
 kind: ConfigMap
 metadata:
   name: eventexporter

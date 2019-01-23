@@ -22,19 +22,31 @@ metrics:
     node: Source.Host
 - name: metric_2
   event_matcher:
-  - key: Message
-    expr: .*Created container.*
-  labels:
-    node: Source.Host
-    type: Type
-- name: metric_3
-  event_matcher:
   - key: Type
     expr: Warning
   - key: Reason
     expr: PodOOMKilling
   labels:
     node: Source.Host
+- name: virtuell_object
+  event_matcher:
+  - key: InvolvedObject.Kind
+    expr: Pod
+  - key: Reason
+    expr: FailedAttachVolume
+  - key: Source.Component
+    expr: attachdetach.*
+  labels:
+    node: Object.Spec.NodeName
+- name: submatch
+  event_matcher:
+  - key: Message
+    expr: Volume (.*) mount failed for Instance (.*)
+  - key: Type
+    expr: Normal
+  labels:
+    volume: Message[1]
+    instance: Message[2]
 ```
 
 See [yaml/eventexporter.yaml](yaml/eventexporter.yaml) for an actual configuration and deployment of eventexporter.
