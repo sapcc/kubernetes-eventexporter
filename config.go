@@ -51,7 +51,7 @@ func NewConfig(reader io.Reader) (*Config, error) {
 		//create lookup map for label values
 		for key, l := range metric.Labels {
 			labelSpec := l //local copy of l, needed for closures
-			if strings.HasPrefix(key, PodVirtualTypePrefix) {
+			if strings.HasPrefix(labelSpec, PodVirtualTypePrefix) {
 				config.Metrics[i].labelLookupMap[key] = func(event *v1.Event, _ map[string][]string) (string, error) {
 					pod, err := getPodObjectForEvent(event)
 					if err != nil {
