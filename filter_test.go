@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 var (
@@ -131,6 +133,44 @@ func TestLabelSubmatch(t *testing.T) {
 			Name:   "submatch",
 			Labels: map[string]string{"volume": "vol-1234", "instance": "instance-789"},
 		},
+	}, matches)
+
+}
+
+func TestObjectReference(t *testing.T) {
+	testConfig := []byte(`metrics:
+- name: submatch
+  event_matcher:
+  - key: Type
+    expr: Normal
+  labels:
+    node: Object.Spec.NodeName
+`)
+	config, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.NoError(t, err, "There should be no error while unmarshaling config")
+
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "test-namespace",
+		},
+		Spec: v1.PodSpec{NodeName: "test-node"},
+	}
+
+	fakeClient := fake.NewSimpleClientset(pod)
+	testEvent := v1.Event{
+		InvolvedObject: v1.ObjectReference{
+			Kind:       "Pod",
+			Namespace:  pod.Namespace,
+			Name:       pod.Name,
+			APIVersion: "v1",
+		},
+		Type: "Normal",
+	}
+
+	matches := LogEvent(&testEvent, &EventRouter{Config: config, kubeClient: fakeClient})
+	require.Equal(t, []FilterMatch{
+		FilterMatch{Name: "submatch", Labels: map[string]string{"node": pod.Spec.NodeName}},
 	}, matches)
 
 }
