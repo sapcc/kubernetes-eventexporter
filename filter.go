@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -97,5 +98,5 @@ func GetValueFromStruct(object interface{}, key string) (string, error) {
 }
 
 func getPodObjectForEvent(event *v1.Event) (*v1.Pod, error) {
-	return eventRouter.kubeClient.CoreV1().Pods(event.InvolvedObject.Namespace).Get(event.InvolvedObject.Name, metav1.GetOptions{})
+	return eventRouter.kubeClient.CoreV1().Pods(event.InvolvedObject.Namespace).Get(context.TODO(), event.InvolvedObject.Name, metav1.GetOptions{})
 }

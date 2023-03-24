@@ -24,8 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// InitializerConfigurations returns a InitializerConfigurationInformer.
-	InitializerConfigurations() InitializerConfigurationInformer
+	// ValidatingAdmissionPolicies returns a ValidatingAdmissionPolicyInformer.
+	ValidatingAdmissionPolicies() ValidatingAdmissionPolicyInformer
+	// ValidatingAdmissionPolicyBindings returns a ValidatingAdmissionPolicyBindingInformer.
+	ValidatingAdmissionPolicyBindings() ValidatingAdmissionPolicyBindingInformer
 }
 
 type version struct {
@@ -39,7 +41,12 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// InitializerConfigurations returns a InitializerConfigurationInformer.
-func (v *version) InitializerConfigurations() InitializerConfigurationInformer {
-	return &initializerConfigurationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ValidatingAdmissionPolicies returns a ValidatingAdmissionPolicyInformer.
+func (v *version) ValidatingAdmissionPolicies() ValidatingAdmissionPolicyInformer {
+	return &validatingAdmissionPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ValidatingAdmissionPolicyBindings returns a ValidatingAdmissionPolicyBindingInformer.
+func (v *version) ValidatingAdmissionPolicyBindings() ValidatingAdmissionPolicyBindingInformer {
+	return &validatingAdmissionPolicyBindingInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

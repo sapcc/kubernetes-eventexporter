@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1alpha1
 
-// InitializerConfigurationListerExpansion allows custom methods to be added to
-// InitializerConfigurationLister.
-type InitializerConfigurationListerExpansion interface{}
+// ValidatingAdmissionPolicyListerExpansion allows custom methods to be added to
+// ValidatingAdmissionPolicyLister.
+type ValidatingAdmissionPolicyListerExpansion interface{}
+
+// ValidatingAdmissionPolicyBindingListerExpansion allows custom methods to be added to
+// ValidatingAdmissionPolicyBindingLister.
+type ValidatingAdmissionPolicyBindingListerExpansion interface{}
