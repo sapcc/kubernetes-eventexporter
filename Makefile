@@ -1,41 +1,23 @@
 TARGET = kubernetes-eventexporter
 GOTARGET = github.com/sapcc/$(TARGET)
-BUILDMNT = /go/src/$(GOTARGET)
-REGISTRY ?= keppel.eu-de-1.cloud.sap/ccloud
-VERSION ?= 0.3.2
+REGISTRY ?= sapcc
+VERSION ?= 0.3.3
 IMAGE = $(REGISTRY)/$(BIN)
-BUILD_IMAGE ?= golang:1.19-alpine
 DOCKER ?= docker
-DIR := ${CURDIR}
-
-ifneq ($(VERBOSE),)
-VERBOSE_FLAG = -v
-endif
-TESTARGS ?= $(VERBOSE_FLAG) -timeout 60s
-TEST_PKGS ?= $(GOTARGET)/...
-TEST = CGO_ENABLED=0 go test $(TEST_PKGS) $(TESTARGS)
-VET_PKGS ?= $(GOTARGET)/...
-VET = CGO_ENABLED=0 go vet $(VET_PKGS)
-
-DOCKER_BUILD ?= $(DOCKER) run --network=host --rm -v $(DIR):$(BUILDMNT) -w $(BUILDMNT) $(BUILD_IMAGE) /bin/sh -c
 
 all: container
 
+test:
+	go test .
+
 container:
-	$(DOCKER_BUILD) 'go build'
 	$(DOCKER) build --network=host -t $(REGISTRY)/$(TARGET):latest -t $(REGISTRY)/$(TARGET):$(VERSION) .
 
 push:
 	$(DOCKER) push $(REGISTRY)/$(TARGET):latest
 	$(DOCKER) push $(REGISTRY)/$(TARGET):$(VERSION)
 
-test:
-	$(DOCKER_BUILD) '$(TEST)'
-
-vet:
-	$(DOCKER_BUILD) '$(VET)'
-
-.PHONY: all local container push
+.PHONY: all test container push
 
 clean:
 	rm -f $(TARGET)

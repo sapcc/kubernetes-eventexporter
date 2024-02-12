@@ -1,10 +1,24 @@
-FROM alpine:3.19
+FROM golang:1.22 AS builder
+
+WORKDIR /go/src/github.com/sapcc/kuberntes-eventexporter
+ADD go.mod go.sum ./
+RUN go mod download
+ADD cache/main.go .
+RUN CGO_ENABLED=0 go build -v -o /dev/null
+ADD . .
+RUN go test -v .
+RUN CGO_ENABLED=0 go build -v -o /kubernetes-eventexporter
+
+RUN apt update -qqq && \
+    apt install -yqqq ca-certificates && \
+    update-ca-certificates
+
+FROM gcr.io/distroless/static-debian12
 LABEL maintainer="jan.knipper@sap.com"
 LABEL source_repository="https://github.com/sapcc/kubernetes-eventexporter"
 
-RUN apk --no-cache add ca-certificates
-COPY kubernetes-eventexporter /kubernetes-eventexporter 
-USER nobody:nobody
+COPY --from=builder /kubernetes-eventexporter /kubernetes-eventexporter
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 
 ENTRYPOINT ["/kubernetes-eventexporter"]
 CMD ["-logtostderr"]
