@@ -6,10 +6,11 @@ toolchain go1.22.0
 
 require (
 	github.com/fatih/structs v1.1.0
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/prometheus/client_golang v1.18.0
+	github.com/golang/glog v1.2.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/stretchr/testify v1.8.4
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.1
 	k8s.io/apimachinery v0.29.1
 	k8s.io/client-go v0.29.1
@@ -56,7 +57,6 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
