@@ -1,4 +1,4 @@
-FROM alpine:3.8
+FROM alpine:3.19
 LABEL maintainer="jan.knipper@sap.com"
 LABEL source_repository="https://github.com/sapcc/kubernetes-eventexporter"
 
