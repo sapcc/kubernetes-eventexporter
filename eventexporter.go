@@ -1,7 +1,21 @@
+// Copyright 2024 SAP SE
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/golang/glog"
@@ -26,7 +40,7 @@ type EventRouter struct {
 	Config         *Config
 }
 
-func NewEventRouter(kubeClient kubernetes.Interface, eventsInformer coreinformers.EventInformer, config *Config) *EventRouter {
+func NewEventRouter(kubeClient kubernetes.Interface, eventsInformer coreinformers.EventInformer, config *Config) (*EventRouter, error) {
 	kubernetesEventCounterVec = make(map[string]*prometheus.CounterVec)
 
 	for _, metric := range config.Metrics {
@@ -38,25 +52,28 @@ func NewEventRouter(kubeClient kubernetes.Interface, eventsInformer coreinformer
 
 		kubernetesEventCounterVec[metric.Name] = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: metric.Name,
-			Help: fmt.Sprintf("Kubernetes Eventexporter Metric %s", metric.Name),
+			Help: "Kubernetes Eventexporter Metric " + metric.Name,
 		}, labels)
 
 		prometheus.MustRegister(kubernetesEventCounterVec[metric.Name])
 	}
 
-	er := &EventRouter{
+	router := &EventRouter{
 		kubeClient: kubeClient,
 		Config:     config,
 	}
-	eventsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    er.addEvent,
-		UpdateFunc: er.updateEvent,
-		DeleteFunc: er.deleteEvent,
+	_, err := eventsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    router.addEvent,
+		UpdateFunc: router.updateEvent,
+		DeleteFunc: router.deleteEvent,
 	})
-	er.eLister = eventsInformer.Lister()
-	er.eListerSynched = eventsInformer.Informer().HasSynced
+	if err != nil {
+		return nil, err
+	}
+	router.eLister = eventsInformer.Lister()
+	router.eListerSynched = eventsInformer.Informer().HasSynced
 
-	return er
+	return router, err
 }
 
 func (er *EventRouter) Run(stopCh <-chan struct{}) {
@@ -66,14 +83,18 @@ func (er *EventRouter) Run(stopCh <-chan struct{}) {
 	glog.Infof("Starting EventRouter")
 
 	if !cache.WaitForCacheSync(stopCh, er.eListerSynched) {
-		utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
+		utilruntime.HandleError(errors.New("timed out waiting for caches to sync"))
 		return
 	}
 	<-stopCh
 }
 
 func (er *EventRouter) addEvent(obj interface{}) {
-	e := obj.(*v1.Event)
+	e, ok := obj.(*v1.Event)
+	if !ok {
+		glog.Warning("got non event from informer")
+		return
+	}
 
 	if discardEvent(e) {
 		glog.V(5).Infof("Discarding event: %v", e)
@@ -81,15 +102,17 @@ func (er *EventRouter) addEvent(obj interface{}) {
 	}
 
 	filterMatches := LogEvent(e, er)
-	if filterMatches != nil {
-		for _, filterMatch := range filterMatches {
-			prometheusEvent(e, filterMatch.Name, filterMatch.Labels)
-		}
+	for _, filterMatch := range filterMatches {
+		prometheusEvent(filterMatch.Name, filterMatch.Labels)
 	}
 }
 
-func (er *EventRouter) updateEvent(objOld interface{}, objNew interface{}) {
-	eNew := objNew.(*v1.Event)
+func (er *EventRouter) updateEvent(objOld, objNew interface{}) {
+	eNew, ok := objNew.(*v1.Event)
+	if !ok {
+		glog.Warning("got non event from informer")
+		return
+	}
 
 	if discardEvent(eNew) {
 		glog.V(5).Infof("Discarding event: %v", eNew)
@@ -97,14 +120,12 @@ func (er *EventRouter) updateEvent(objOld interface{}, objNew interface{}) {
 	}
 
 	filterMatches := LogEvent(eNew, er)
-	if filterMatches != nil {
-		for _, filterMatch := range filterMatches {
-			prometheusEvent(eNew, filterMatch.Name, filterMatch.Labels)
-		}
+	for _, filterMatch := range filterMatches {
+		prometheusEvent(filterMatch.Name, filterMatch.Labels)
 	}
 }
 
-func prometheusEvent(event *v1.Event, filter string, labels map[string]string) {
+func prometheusEvent(filter string, labels map[string]string) {
 	var counter prometheus.Counter
 	var err error
 
@@ -120,7 +141,11 @@ func prometheusEvent(event *v1.Event, filter string, labels map[string]string) {
 }
 
 func (er *EventRouter) deleteEvent(obj interface{}) {
-	e := obj.(*v1.Event)
+	e, ok := obj.(*v1.Event)
+	if !ok {
+		glog.Warning("got non event from informer")
+		return
+	}
 	glog.V(5).Infof("Event Deleted from the system:\n%v", e)
 }
 

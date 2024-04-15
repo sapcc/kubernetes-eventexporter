@@ -1,3 +1,17 @@
+// Copyright 2024 SAP SE
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -77,13 +91,22 @@ func main() {
 	sharedInformers := informers.NewSharedInformerFactory(clientset, time.Minute*30)
 	eventsInformer := sharedInformers.Core().V1().Events()
 
-	eventRouter := NewEventRouter(clientset, eventsInformer, config)
+	eventRouter, err := NewEventRouter(clientset, eventsInformer, config)
+	if err != nil {
+		glog.Fatal("Failed to create event router: %s", err)
+	}
 	stop := sigHandler()
 
 	go func() {
 		glog.Info("Starting prometheus metrics")
-		http.Handle("/metrics", promhttp.Handler())
-		glog.Warning(http.ListenAndServe(metricsAddr, nil))
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		server := &http.Server{
+			Addr:              metricsAddr,
+			ReadHeaderTimeout: 3 * time.Second,
+			Handler:           mux,
+		}
+		glog.Warning(server.ListenAndServe())
 	}()
 
 	wg.Add(1)
@@ -103,11 +126,11 @@ func kubeConfig(kubeconfig, context string) (*rest.Config, error) {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
 
-	if len(context) > 0 {
+	if context != "" {
 		overrides.CurrentContext = context
 	}
 
-	if len(kubeconfig) > 0 {
+	if kubeconfig != "" {
 		rules.ExplicitPath = kubeconfig
 	}
 

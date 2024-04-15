@@ -3,8 +3,6 @@ FROM golang:1.22 AS builder
 WORKDIR /go/src/github.com/sapcc/kuberntes-eventexporter
 ADD go.mod go.sum ./
 RUN go mod download
-ADD cache/main.go .
-RUN CGO_ENABLED=0 go build -v -o /dev/null
 ADD . .
 RUN go test -v .
 RUN CGO_ENABLED=0 go build -v -o /kubernetes-eventexporter

@@ -1,3 +1,17 @@
+// Copyright 2024 SAP SE
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -28,7 +42,13 @@ var (
   labels:
     type: Type
 `)
-	testEvent = v1.Event{
+)
+
+func TestLogEventMatch(t *testing.T) {
+	config, err := NewConfig(bytes.NewBuffer(testConfig))
+	require.NoError(t, err, "There should be no error while unmarshaling config")
+
+	testEvent := v1.Event{
 		Message:        "Created container",
 		InvolvedObject: v1.ObjectReference{Kind: "Pod"},
 		Source: v1.EventSource{
@@ -36,20 +56,14 @@ var (
 		},
 		Type: "Normal",
 	}
-)
-
-func TestLogEventMatch(t *testing.T) {
-	config, err := NewConfig(bytes.NewBuffer(testConfig))
-	require.NoError(t, err, "There should be no error while unmarshaling config")
-
 	matches := LogEvent(&testEvent, &EventRouter{Config: config})
 
 	require.Equal(t, []FilterMatch{
-		FilterMatch{
+		{
 			Name:   "metric_1",
 			Labels: map[string]string{"node": testEvent.Source.Host, "type": testEvent.Type},
 		},
-		FilterMatch{
+		{
 			Name:   "metric_2",
 			Labels: map[string]string{"type": testEvent.Type},
 		},
@@ -60,7 +74,7 @@ func TestNoMatch(t *testing.T) {
 	config, err := NewConfig(bytes.NewBuffer(testConfig))
 	require.NoError(t, err, "There should be no error while unmarshaling config")
 
-	testEvent = v1.Event{
+	testEvent := v1.Event{
 		Message: "Other message",
 		Source: v1.EventSource{
 			Host: "Testnode",
@@ -89,7 +103,7 @@ func TestSkipMetricsWithMissingLabels(t *testing.T) {
   labels:
     type: Type
 `)
-	testEvent = v1.Event{
+	testEvent := v1.Event{
 		Message: "Label missing",
 		Type:    "Normal",
 	}
@@ -99,12 +113,11 @@ func TestSkipMetricsWithMissingLabels(t *testing.T) {
 	matches := LogEvent(&testEvent, &EventRouter{Config: config})
 
 	require.Equal(t, []FilterMatch{
-		FilterMatch{
+		{
 			Name:   "metric_2",
 			Labels: map[string]string{"type": testEvent.Type},
 		},
 	}, matches)
-
 }
 
 func TestLabelSubmatch(t *testing.T) {
@@ -119,7 +132,7 @@ func TestLabelSubmatch(t *testing.T) {
     volume: Message[1]
     instance: Message[2]
 `)
-	testEvent = v1.Event{
+	testEvent := v1.Event{
 		Message: "Volume vol-1234 mount failed for Instance instance-789",
 		Type:    "Normal",
 	}
@@ -129,12 +142,11 @@ func TestLabelSubmatch(t *testing.T) {
 	matches := LogEvent(&testEvent, &EventRouter{Config: config})
 
 	require.Equal(t, []FilterMatch{
-		FilterMatch{
+		{
 			Name:   "submatch",
 			Labels: map[string]string{"volume": "vol-1234", "instance": "instance-789"},
 		},
 	}, matches)
-
 }
 
 func TestObjectReference(t *testing.T) {
@@ -158,7 +170,7 @@ func TestObjectReference(t *testing.T) {
 	}
 
 	fakeClient := fake.NewSimpleClientset(pod)
-	testEvent := v1.Event{
+	event := v1.Event{
 		InvolvedObject: v1.ObjectReference{
 			Kind:       "Pod",
 			Namespace:  pod.Namespace,
@@ -168,11 +180,10 @@ func TestObjectReference(t *testing.T) {
 		Type: "Normal",
 	}
 
-	matches := LogEvent(&testEvent, &EventRouter{Config: config, kubeClient: fakeClient})
+	matches := LogEvent(&event, &EventRouter{Config: config, kubeClient: fakeClient})
 	require.Equal(t, []FilterMatch{
-		FilterMatch{Name: "submatch", Labels: map[string]string{"node": pod.Spec.NodeName}},
+		{Name: "submatch", Labels: map[string]string{"node": pod.Spec.NodeName}},
 	}, matches)
-
 }
 
 func TestConfigErrorSubmatchWithoutMatcher(t *testing.T) {
@@ -185,7 +196,7 @@ func TestConfigErrorSubmatchWithoutMatcher(t *testing.T) {
     volume: Message[1]
 `)
 	_, err := NewConfig(bytes.NewBuffer(testConfig))
-	require.EqualError(t, err, "Configuration for metric 'submatch' invalid: Can't use a submatch for key 'Message' without a match expression")
+	require.EqualError(t, err, "configuration for metric 'submatch' invalid: Can't use a submatch for key 'Message' without a match expression")
 }
 func TestConfigErrorSubmatchGroupMissing(t *testing.T) {
 	testConfig := []byte(`metrics:
@@ -197,7 +208,7 @@ func TestConfigErrorSubmatchGroupMissing(t *testing.T) {
     volume: Message[1]
 `)
 	_, err := NewConfig(bytes.NewBuffer(testConfig))
-	require.EqualError(t, err, "Configuration for metric 'submatch' invalid: Match expression for key 'Message' does not contain 1 subexpressions")
+	require.EqualError(t, err, "configuration for metric 'submatch' invalid: Match expression for key 'Message' does not contain 1 subexpressions")
 }
 
 func TestLogEventEmptyConfig(t *testing.T) {
@@ -207,8 +218,14 @@ func TestLogEventEmptyConfig(t *testing.T) {
 }
 
 func TestLogEventEmptyEvent(t *testing.T) {
-
+	testEvent := v1.Event{
+		Message:        "Created container",
+		InvolvedObject: v1.ObjectReference{Kind: "Pod"},
+		Source: v1.EventSource{
+			Host: "Testnode",
+		},
+		Type: "Normal",
+	}
 	matches := LogEvent(&testEvent, &EventRouter{})
-
 	require.Equal(t, 0, len(matches), "There should be no metrics returned")
 }

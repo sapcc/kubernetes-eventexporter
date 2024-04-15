@@ -1,7 +1,22 @@
+// Copyright 2024 SAP SE
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -33,7 +48,6 @@ func LogEvent(event *v1.Event, er *EventRouter) []FilterMatch {
 
 OUTER:
 	for _, metric := range er.Config.Metrics {
-
 		matchResults := make(map[string][]string, len(metric.EventMatcher))
 
 		for _, filter := range metric.EventMatcher {
@@ -43,7 +57,7 @@ OUTER:
 				continue OUTER
 			}
 
-			if filter.Expr != "" && err == nil {
+			if filter.Expr != "" {
 				matchResults[filter.Key] = metric.regexMap[filter.Key].FindStringSubmatch(value)
 				glog.V(5).Infof("Expression: %s Value: %s Match: %v\n", filter.Expr, value, matchResults[filter.Key] != nil)
 				if matchResults[filter.Key] == nil {
@@ -54,7 +68,7 @@ OUTER:
 
 		var l = make(map[string]string)
 
-		for labelKey, _ := range metric.Labels {
+		for labelKey := range metric.Labels {
 			labelValue, err := metric.labelLookupMap[labelKey](event, matchResults)
 			if err != nil {
 				glog.Errorf("Could not get label '%s' for metric '%s': %v", labelKey, metric.Name, err)
@@ -84,14 +98,14 @@ func GetValueFromStruct(object interface{}, key string) (string, error) {
 		}
 
 		if !ok {
-			return "", fmt.Errorf("Extracting value failed at %s, index %d", v, i)
+			return "", fmt.Errorf("extracting value failed at %s, index %d", v, i)
 		}
 	}
 
 	ret, ok := newS.Value().(string)
 
 	if !ok {
-		return "", fmt.Errorf("Value is not a string")
+		return "", errors.New("value is not a string")
 	}
 
 	return ret, nil

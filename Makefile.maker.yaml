@@ -1,0 +1,28 @@
+# Configuration file for <https://github.com/sapcc/go-makefile-maker>
+
+metadata:
+  url: https://github.com/sapcc/kubernetes-eventexporter
+
+binaries:
+  - name:        kubernetes-eventexporter
+    fromPackage: .
+    installTo:   bin/
+
+golang:
+  setGoModVersion: true
+  enableVendoring: true
+
+golangciLint:
+  createConfig: true
+
+githubWorkflow:
+  ci:
+    enabled: true
+  global:
+    defaultBranch: master
+
+renovate:
+  enabled: true
+  assignees:
+    - Nuckal777
+    - SuperSandro2000
