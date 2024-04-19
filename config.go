@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 )
 
