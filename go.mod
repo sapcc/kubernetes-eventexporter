@@ -2,7 +2,7 @@ module github.com/sapcc/kubernetes-eventexporter
 
 go 1.22
 
-toolchain go1.22.0
+toolchain go1.22.2
 
 require (
 	github.com/fatih/structs v1.1.0
