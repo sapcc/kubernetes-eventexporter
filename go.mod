@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/fatih/structs v1.1.0
 	github.com/golang/glog v1.2.1
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.29.3
