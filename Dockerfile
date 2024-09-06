@@ -1,4 +1,4 @@
-FROM golang:1.22 AS builder
+FROM golang:1.23 AS builder
 
 WORKDIR /go/src/github.com/sapcc/kuberntes-eventexporter
 ADD go.mod go.sum ./
