@@ -36,7 +36,7 @@ GO_BUILDENV =
 build-all: build/kubernetes-eventexporter
 
 build/kubernetes-eventexporter: FORCE
-	@env $(GO_BUILDENV) go build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -o build/kubernetes-eventexporter .
+	env $(GO_BUILDENV) go build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -o build/kubernetes-eventexporter .
 
 DESTDIR =
 ifeq ($(shell uname -s),Darwin)
